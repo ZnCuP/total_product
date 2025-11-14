@@ -3,126 +3,34 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>实时采集展示 - SPA</title>
+  <title>汽车配件实时采集 - 升级版</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
   <div class="app">
     <header class="topbar">
-      <div class="brand">采集看板</div>
+      <div class="brand">🚗 汽车配件采集看板</div>
       <div class="filters">
         <input id="keyword" list="kwlist" placeholder="选择或输入关键词(英文搜索)" />
         <datalist id="kwlist"></datalist>
         <label class="auto">
-          <input id="auto" type="checkbox"> 自动刷新
+          <input id="auto" type="checkbox"> 自动刷新(30s)
         </label>
+        <button id="clearCache" class="btn-clear">清除缓存</button>
       </div>
     </header>
     <section class="sites" id="sites"></section>
-    <section class="info" id="info"></section>
+    <section class="info" id="info">
+      <div class="welcome">👆 请选择一个网站并输入关键词开始搜索</div>
+    </section>
     <section class="grid" id="grid"></section>
+    
+    <!-- 加载动画 -->
+    <div class="loading-overlay" id="loading" style="display:none">
+      <div class="spinner"></div>
+      <div class="loading-text">正在抓取数据...</div>
+    </div>
   </div>
-  <script>
-    const sites = [
-      { id:'apremium', name:'A‑Premium', url:'https://a-premium.com/', category:'汽车配件' },
-      { id:'sixity', name:'Sixity Auto', url:'https://www.sixityauto.com/', category:'汽车配件' },
-      { id:'dorman', name:'Dorman Products', url:'https://www.dormanproducts.com/', category:'汽车配件' },
-      { id:'autodoc', name:'AUTODOC', url:'https://www.autodoc.parts/', category:'汽车配件' }
-    ]
-    const infoEl = document.getElementById('info')
-    const gridEl = document.getElementById('grid')
-    const sitesEl = document.getElementById('sites')
-    const keywordInput = document.getElementById('keyword')
-    const kwlistEl = document.getElementById('kwlist')
-    const autoCb = document.getElementById('auto')
-    let currentSite = null
-    let currentKeyword = ''
-    let currentKeywordZh = ''
-    let timer = null
-
-    const keywords = [
-      { en:'Oil Level Sensor', zh:'机油液位传感器' },
-      { en:'Diesel Glow Plug Controller', zh:'预热控制模块' },
-      { en:'Steering Angle sensor', zh:'方向盘转角传感器' },
-      { en:'MAP Sensor', zh:'压力传感器' },
-      { en:'Exhaust Gas PDF Differential Pressure Sensor', zh:'排气压力传感器/压差传感器' },
-      { en:'EGTS Sensor', zh:'尾气温度传感器' },
-      { en:'Ride Height Level Sensor', zh:'水平高度传感器' },
-      { en:'air flow meter', zh:'空气流量传感器' },
-      { en:'Oxygen Sensor', zh:'氧传感器' },
-      { en:'Throttle Position Sensor', zh:'节气门位置传感器' },
-      { en:'Knock Sensor', zh:'爆震传感器' },
-      { en:'clock spring', zh:'气囊游丝' },
-      { en:'Ignition Coils', zh:'点火线圈' },
-      { en:'Windshield Fluid Washer Pump', zh:'清洗泵' },
-    ]
-
-    function renderKeywords() {
-      kwlistEl.innerHTML = keywords.map(k => `<option value="${k.en}" label="${k.en}--${k.zh}"></option>`).join('')
-    }
-
-    function renderSiteButtons() {
-      const list = sites
-      sitesEl.innerHTML = list.map(s => `<button class="site-btn" data-id="${s.id}">${s.name}</button>`).join('')
-      sitesEl.querySelectorAll('.site-btn').forEach(btn => btn.addEventListener('click', () => {
-        const id = btn.getAttribute('data-id')
-        const site = sites.find(x => x.id === id)
-        if (site) loadSite(site)
-      }))
-    }
-
-    async function loadSite(site) {
-      currentSite = site
-      if (timer) { clearInterval(timer); timer = null }
-      await fetchAndRender(site)
-      if (autoCb.checked) timer = setInterval(() => fetchAndRender(site), 30000)
-    }
-
-    async function fetchAndRender(site) {
-      infoEl.textContent = '加载中...'
-      gridEl.innerHTML = ''
-      try {
-        const res = await fetch('/api/fetch?url=' + encodeURIComponent(site.url) + (currentKeyword ? '&keyword=' + encodeURIComponent(currentKeyword) : ''))
-        if (!res.ok) { infoEl.textContent = '抓取失败'; return }
-        const data = await res.json()
-        const meta = data.meta || {}
-        const stats = data.stats || {}
-        const kwStats = (data.analysis && data.analysis.keywords) ? data.analysis.keywords.join('、') : ''
-        const kwDisplay = currentKeyword ? `${currentKeyword} — ${currentKeywordZh || ''}` : '未选择关键词'
-        infoEl.innerHTML = `<div>站点: ${site.name} · 关键词: ${kwDisplay} · 页面标题: ${meta.title || ''}</div>
-          <div>字数: ${stats.wordCount || 0} · 链接数: ${stats.linkCount || 0} · 图片数: ${stats.imageCount || 0} · 页面关键词: ${kwStats}</div>`
-        const items = Array.isArray(data.items) ? data.items : []
-        const filtered = (currentKeyword ? items.filter(it => (it.title||'').toLowerCase().includes(currentKeyword.toLowerCase())) : items)
-        if (filtered.length) {
-          const cards = filtered.map(it => `<article class="card"><a href="${it.url}" target="_blank" rel="noopener noreferrer">${it.title}</a></article>`)
-          gridEl.innerHTML = cards.join('')
-        } else {
-          const tmp = document.createElement('div')
-          tmp.innerHTML = data.html || ''
-          let ps = Array.from(tmp.querySelectorAll('p')).map(p => p.textContent.trim()).filter(t => t.length > 10)
-          if (currentKeyword) ps = ps.filter(t => t.toLowerCase().includes(currentKeyword.toLowerCase()))
-          ps = ps.slice(0, 9)
-          const cards = ps.map(t => `<article class="card">${t.slice(0, 180)}</article>`)
-          gridEl.innerHTML = cards.join('')
-        }
-      } catch (e) {
-        infoEl.textContent = '网络异常'
-      }
-    }
-
-    keywordInput.addEventListener('input', () => {
-      const val = keywordInput.value.trim()
-      currentKeyword = val
-      const found = keywords.find(k => k.en.toLowerCase() === val.toLowerCase())
-      currentKeywordZh = found ? found.zh : ''
-    })
-    autoCb.addEventListener('change', () => {
-      if (autoCb.checked && currentSite) timer = setInterval(() => fetchAndRender(currentSite), 30000)
-      else if (timer) { clearInterval(timer); timer = null }
-    })
-
-    renderKeywords()
-    renderSiteButtons()
-  </script>
+  <script src="/app.js"></script>
 </body>
 </html>
