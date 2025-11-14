@@ -1,0 +1,22 @@
+{
+  "name": "total_product",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "cheerio": "^1.1.2",
+    "express": "^5.1.0",
+    "node-fetch": "^2.7.0",
+    "puppeteer": "^22.15.0",
+    "sanitize-html": "^2.17.0"
+  }
+}
